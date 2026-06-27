@@ -1,6 +1,6 @@
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
+import { corsMiddleware } from "./cors.js";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 
@@ -9,7 +9,7 @@ import routes from "./routes.js";
 import { User, Template } from "./models.js";
 
 const app = express();
-app.use(cors());
+app.use(corsMiddleware);
 app.use(express.json({ limit: "32mb" }));
 
 // Hardening: limita tentativas de login (anti brute-force). 20 req / 15 min por IP.

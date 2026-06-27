@@ -7,7 +7,7 @@ import path from "path";
 import crypto from "crypto";
 import multer from "multer";
 
-import { auth } from "./auth.js";
+import { auth, requireRole } from "./auth.js";
 import { render } from "./template.js";
 import { User, Contact, Template, Recurring, ScheduledMessage, AutoReply,
          OnboardingConfig, PipelineConfig, PipelineContact, Audit } from "./models.js";
@@ -18,6 +18,32 @@ const router = express.Router();
 // evitando que uma excecao (ex.: CastError) derrube o processo inteiro.
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const queue = makeQueue();
+
+// ──────────────────────────────────────────────────────────────────
+// CONTROLE DE ACESSO POR PAPEL (RBAC) — aplicado a TODAS as rotas /api
+// Regra geral: metodos de leitura (GET) exigem >= viewer (qualquer
+// usuario autenticado); metodos de escrita (POST/PUT/DELETE) exigem
+// >= operator. Rotas admin-only (backup) usam adminOnly individualmente.
+// Excecoes (sem token / sem RBAC): /auth/login e /internal/message
+// (webhook do gateway). Essas sao tratadas pelos middlewares proprios
+// de cada rota e nao passam por 'auth', entao req.user fica indefinido.
+// ──────────────────────────────────────────────────────────────────
+const RBAC_EXEMPT = new Set(["/auth/login", "/internal/message"]);
+// Guarda global: autentica (JWT) e aplica RBAC antes de QUALQUER rota /api,
+// exceto as exemptas (login e webhook do gateway, que tem fluxo proprio).
+// Roda ANTES dos handlers, entao centraliza auth+papel num unico ponto.
+router.use((req, res, next) => {
+  if (RBAC_EXEMPT.has(req.path)) return next();
+  // 1) autentica e popula req.user
+  auth(req, res, (err) => {
+    if (err) return next(err);
+    if (!req.user) return; // auth ja respondeu 401
+    // 2) aplica papel minimo conforme o metodo
+    const writing = req.method === "POST" || req.method === "PUT" || req.method === "DELETE";
+    const min = writing ? "operator" : "viewer";
+    return requireRole(min)(req, res, next);
+  });
+});
 
 // ══════════════════════════════════════════════════════════════════
 // HELPERS COMPARTILHADOS — usados por /auto-reply/test e /internal/message
@@ -735,29 +761,26 @@ router.post("/internal/message", async (req, res) => {
 
   if (matched) {
     console.log(`✅ Regra "${matched.keyword}" ativada para ${phone}`);
+    // CORRECAO: nao bloquear o webhook. Enfileira o envio com atraso humano
+    // (12-20s) como job; o worker resolve nome, renderiza e envia.
     try {
-      // AUTO_REPLY_DELAY: atraso humano aleatorio 12-20s antes de responder
-        const _arDelay = 12000 + Math.floor(Math.random() * 8001);
-        console.log("[auto-reply] aguardando " + (_arDelay/1000).toFixed(1) + "s para " + phone);
-        await new Promise(function(r){ setTimeout(r, _arDelay); });
-        const agenda = await agendaFirstName(candidates);
-      const name = agenda || firstName(matched.targetName) || phone;
-      const replyText = render(matched.reply || "", { nome: name });
-      const sendResp = await fetch(`${process.env.WA_GATEWAY_URL}/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: phone, text: replyText, replyTo: replyTo || from }),
-      });
-      const sendResult = await sendResp.json().catch(() => ({}));
-      console.log(`📤 Resposta enviada: ${JSON.stringify(sendResult)}`);
-      await Audit.create({
-        who: "system", action: "AUTO_REPLY_SENT",
-        entity: String(matched._id),
-        detail: `Regra "${matched.keyword}" → ${phone}`,
-        ok: true,
-      });
+      const _arDelay = 12000 + Math.floor(Math.random() * 8001);
+      await queue.add(
+        "send-auto-reply",
+        {
+          ruleId: String(matched._id),
+          keyword: matched.keyword,
+          reply: matched.reply || "",
+          targetName: matched.targetName || "",
+          phone,
+          replyTo: replyTo || from,
+          candidates: [...candidates],
+        },
+        { delay: _arDelay, attempts: 3, backoff: { type: "exponential", delay: 5000 }, removeOnComplete: 500, removeOnFail: 500 }
+      );
+      console.log(`[auto-reply] enfileirado (delay ${(_arDelay/1000).toFixed(1)}s) para ${phone}`);
     } catch (e) {
-      console.error(`❌ Erro ao enviar auto-reply: ${e.message}`);
+      console.error(`\u274c Erro ao enfileirar auto-reply: ${e.message}`);
       await Audit.create({ who: "system", action: "AUTO_REPLY_FAIL", entity: String(matched._id), detail: e.message, ok: false });
     }
   } else {
@@ -971,7 +994,8 @@ router.get("/audit", auth, async (_req, res) =>
 // no host executa o backup.sh (a API nao tem acesso ao docker).
 const BACKUP_DIR = "/backups";
 const BACKUP_REQ_DIR = "/backups/requests";
-function adminOnly(req, res, next){ if(req.user && req.user.role==="admin") return next(); return res.status(403).json({ error: "forbidden_admin_only" }); }
+// adminOnly agora vem de auth.js como requireRole("admin")
+const adminOnly = requireRole("admin");
 
 function dirSizeBytes(dir) {
   let total = 0;

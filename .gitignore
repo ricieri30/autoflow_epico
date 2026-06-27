@@ -1,0 +1,26 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Variaveis de ambiente (NUNCA commitar segredos reais)
+.env
+**/.env
+*.local
+
+# Logs
+*.log
+logs/
+
+# Sessao do WhatsApp / dados sensiveis
+wa_auth/
+**/wa_auth/
+backups/
+
+# Build
+dist/
+build/
+
+# SO / editor
+.DS_Store
+.vscode/
+.idea/

@@ -17,6 +17,7 @@ const ScheduledMessage = m("ScheduledMessage", {}, "scheduledmessages");
 const PipelineContact  = m("PipelineContact",  {}, "pipelinecontacts");
 const OnboardingConfig = m("OnboardingConfig", {}, "onboardingconfigs");
 const PipelineConfig   = m("PipelineConfig",   {}, "pipelineconfigs");
+const AutoReply       = m("AutoReply", {}, "autoreplies");
 
 const MIN_DELAY = Math.max(0, parseInt(process.env.MIN_MESSAGE_DELAY_MS || "2000", 10));
 const JITTER    = Math.max(0, parseInt(process.env.JITTER_MS            || "1000", 10));
@@ -93,6 +94,32 @@ async function resolveName(phone, fallback) {
 
 // ── Worker ────────────────────────────────────────────────────────
 new Worker("wa-scheduler", async (job) => {
+
+  // ── 0. Auto-reply (resposta por palavra-chave, com atraso humano) ──
+  // Enfileirado por /internal/message para NAO bloquear o webhook do gateway.
+  if (job.name === "send-auto-reply") {
+    const { ruleId, reply, targetName, phone, replyTo } = job.data;
+    try {
+      const rule = await AutoReply.findById(ruleId);
+      if (!rule || rule.active === false) {
+        console.log(`[auto-reply] regra ${ruleId} inativa/removida — pulando`);
+        return;
+      }
+      const name = (await resolveName(phone, targetName)) || firstName(targetName) || phone;
+      const replyText = render(reply || rule.reply || "", { nome: name });
+      const r = await fetch(`${process.env.WA_GATEWAY_URL}/send`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: phone, text: replyText, replyTo: replyTo || phone }),
+      });
+      if (!r.ok) { const t = await r.text(); throw new Error(`gw_${r.status}:${t}`); }
+      await Audit.create({ who: "system", action: "AUTO_REPLY_SENT", entity: String(ruleId), detail: `${phone}`, ok: true });
+    } catch (e) {
+      await Audit.create({ who: "system", action: "AUTO_REPLY_FAIL", entity: String(ruleId), detail: e.message, ok: false });
+      throw e;
+    }
+    return;
+  }
+
 
   // ── 1. Onboarding (30min após cadastro) ──────────────────────
   if (job.name === "pipeline-onboarding") {
