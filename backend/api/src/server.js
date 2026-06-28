@@ -9,6 +9,9 @@ import routes from "./routes.js";
 import { User, Template } from "./models.js";
 
 const app = express();
+// Atras do nginx (proxy reverso): confia em 1 hop para o X-Forwarded-For
+// ser lido corretamente (necessario para o express-rate-limit identificar o IP real).
+app.set("trust proxy", 1);
 app.use(corsMiddleware);
 app.use(express.json({ limit: "32mb" }));
 
