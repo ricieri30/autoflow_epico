@@ -16,7 +16,7 @@ export default {
         bone:   "#E9EDEB",
         mist:   "#B9C4C0",
         mut:    "#76847F",
-        signal: { DEFAULT: "#3FE0A2", dim: "#1c6b4d" },
+        signal: { DEFAULT: "#F5A623", dim: "#8a5a10" },
         // "brand" mantido como o lilás secundário (compatível com telas ainda não migradas)
         brand: {
           50:"#f5f3ff",100:"#ede9fe",200:"#ddd6fe",300:"#c4b5fd",400:"#a78bfa",
@@ -24,7 +24,7 @@ export default {
         },
         gold: { 300:"#f3d98b",400:"#e8c25f",500:"#d4a23a" },
       },
-      boxShadow: { premium: "0 10px 40px -12px rgba(63,224,162,0.30)" },
+      boxShadow: { premium: "0 10px 40px -12px rgba(245,166,35,0.30)" },
     },
   },
   plugins: [],

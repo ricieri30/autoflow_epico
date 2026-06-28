@@ -200,7 +200,7 @@ function NavItem({ icon: Icon, label, active, onClick, badge }) {
       className={cn(
         "w-full flex items-center gap-3 px-2.5 py-2 rounded-[10px] text-sm font-medium transition-colors border border-transparent",
         active
-          ? "bg-gradient-to-r from-[rgba(63,224,162,0.13)] to-[rgba(63,224,162,0.03)] text-bone border-[rgba(63,224,162,0.25)]"
+          ? "bg-gradient-to-r from-[rgba(245,166,35,0.13)] to-[rgba(245,166,35,0.03)] text-bone border-[rgba(245,166,35,0.25)]"
           : "text-mist hover:bg-raised hover:text-bone"
       )}
     >
@@ -404,7 +404,7 @@ function DashboardView({ onNavigate }) {
           <h1 className="font-display font-semibold text-[23px] tracking-tight text-bone">Visão Geral</h1>
         </div>
         <div className="flex items-center gap-2.5">
-          <span className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-signal/30 bg-[rgba(63,224,162,0.07)] text-[11px] tracking-[0.13em] uppercase font-semibold text-signal">
+          <span className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-signal/30 bg-[rgba(245,166,35,0.07)] text-[11px] tracking-[0.13em] uppercase font-semibold text-signal">
             <span className="w-1.5 h-1.5 rounded-full bg-signal cad-livedot" /> Sinal vivo
           </span>
           <button onClick={load} className="flex items-center gap-2 px-3.5 py-2 rounded-[10px] border border-hair-2 bg-raised hover:bg-raised-2 text-mist hover:text-bone text-sm font-medium transition-colors">
@@ -1678,11 +1678,11 @@ function Login({ onLogged }) {
         <div className="px-6 pt-6 pb-5">
           <div className="flex items-center gap-3">
             <div className="w-[38px] h-[38px] rounded-[11px] flex-none border border-hair-2 flex items-center justify-center" style={{ background: "radial-gradient(circle at 30% 25%, #2a3b36, #0d1311)" }}>
-              <span className="w-3 h-3 rounded-full bg-signal cad-livedot" style={{ boxShadow: "0 0 0 3px rgba(63,224,162,.16), 0 0 14px #3FE0A2" }} />
+              <span className="w-3 h-3 rounded-full bg-signal cad-livedot" style={{ boxShadow: "0 0 0 3px rgba(245,166,35,.16), 0 0 14px #F5A623" }} />
             </div>
             <div>
               <div className="font-display font-bold text-bone text-lg tracking-tight leading-none">AutoFlow</div>
-              <div className="text-[10px] text-mut tracking-[0.16em] uppercase mt-1">Cadence Console</div>
+              <div className="text-[10px] text-mut tracking-[0.16em] uppercase mt-1">EPICO Console</div>
             </div>
           </div>
         </div>
@@ -1754,11 +1754,11 @@ function Shell({ user, onLogout }) {
       <aside className={cn("w-[236px] flex-shrink-0 border-r border-hair bg-gradient-to-b from-ink-2 to-ink flex flex-col fixed inset-y-0 left-0 z-50 h-screen transition-transform duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0", menuOpen ? "translate-x-0" : "-translate-x-full")}>
         <div className="flex items-center gap-3 px-4 pt-[18px] pb-1">
           <div className="w-[30px] h-[30px] rounded-[9px] flex-none border border-hair-2 flex items-center justify-center" style={{ background: "radial-gradient(circle at 30% 25%, #2a3b36, #0d1311)" }}>
-            <span className="w-[11px] h-[11px] rounded-full bg-signal" style={{ boxShadow: "0 0 0 3px rgba(63,224,162,.16), 0 0 14px #3FE0A2" }} />
+            <span className="w-[11px] h-[11px] rounded-full bg-signal" style={{ boxShadow: "0 0 0 3px rgba(245,166,35,.16), 0 0 14px #F5A623" }} />
           </div>
           <div>
             <div className="font-display font-bold text-[16px] tracking-tight text-bone leading-none">AutoFlow</div>
-            <div className="text-[10px] text-mut tracking-[0.16em] uppercase mt-1">Cadence</div>
+            <div className="text-[10px] text-mut tracking-[0.16em] uppercase mt-1">EPICO</div>
           </div>
         </div>
 
@@ -1786,8 +1786,8 @@ function Shell({ user, onLogout }) {
             <div className="cad-ekg mt-2.5 h-[26px] w-full overflow-hidden rounded-[7px] border border-hair" style={{ background: "linear-gradient(180deg,#0c1210,#0a0f0d)" }}>
               <svg viewBox="0 0 240 26" preserveAspectRatio="none" width="480" height="26" className="block">
                 <g className="scan">
-                  <polyline points="0,13 30,13 38,5 46,21 54,13 90,13 98,9 106,17 114,13 150,13 158,3 166,23 174,13 210,13 218,9 226,17 234,13 240,13" fill="none" stroke="#3FE0A2" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" opacity={waStatus === "connected" ? ".9" : ".22"} />
-                  <polyline points="240,13 270,13 278,5 286,21 294,13 330,13 338,9 346,17 354,13 390,13 398,3 406,23 414,13 450,13 458,9 466,17 474,13 480,13" fill="none" stroke="#3FE0A2" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" opacity={waStatus === "connected" ? ".9" : ".22"} />
+                  <polyline points="0,13 30,13 38,5 46,21 54,13 90,13 98,9 106,17 114,13 150,13 158,3 166,23 174,13 210,13 218,9 226,17 234,13 240,13" fill="none" stroke="#F5A623" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" opacity={waStatus === "connected" ? ".9" : ".22"} />
+                  <polyline points="240,13 270,13 278,5 286,21 294,13 330,13 338,9 346,17 354,13 390,13 398,3 406,23 414,13 450,13 458,9 466,17 474,13 480,13" fill="none" stroke="#F5A623" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" opacity={waStatus === "connected" ? ".9" : ".22"} />
                 </g>
               </svg>
             </div>
@@ -1812,7 +1812,7 @@ function Shell({ user, onLogout }) {
             <Menu className="h-5 w-5" />
           </button>
           <span className="font-display font-bold text-[15px] tracking-tight text-bone">AutoFlow</span>
-          <span className="text-[9px] text-mut tracking-[0.16em] uppercase mt-0.5">Cadence</span>
+          <span className="text-[9px] text-mut tracking-[0.16em] uppercase mt-0.5">EPICO</span>
         </div>
         {screen === "dashboard" && <DashboardView onNavigate={go} />}
         {screen === "contacts" && <ContactsView toast={showToast} />}
