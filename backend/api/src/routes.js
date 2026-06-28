@@ -12,6 +12,7 @@ import { render } from "./template.js";
 import { User, Contact, Template, Recurring, ScheduledMessage, AutoReply,
          OnboardingConfig, PipelineConfig, PipelineContact, Audit } from "./models.js";
 import { makeQueue, upsertRecurringScheduler, removeRecurringScheduler } from "./scheduler.js";
+import { validate, ChangePasswordSchema, TemplateSchema, ContactCreateSchema, ContactUpdateSchema, AutoReplySchema, AutoReplyTestSchema, ScheduledSchema, RecurringPreviewSchema, PipelineContactSchema } from "./validation.js";
 
 const router = express.Router();
 // wrap: captura erros de handlers async e os repassa ao error handler central,
@@ -211,7 +212,7 @@ router.post("/auth/login", async (req, res) => {
 });
 
 // — Trocar senha do próprio usuário logado
-router.post("/auth/change-password", auth, async (req, res) => {
+router.post("/auth/change-password", auth, validate(ChangePasswordSchema), async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body || {};
     if (!currentPassword || !newPassword) return res.status(400).json({ error: "missing_fields" });
@@ -300,7 +301,7 @@ router.get("/templates", auth, async (_req, res) =>
   res.json(await Template.find({}).sort({ createdAt: -1 }))
 );
 
-router.post("/templates", auth, async (req, res) => {
+router.post("/templates", auth, validate(TemplateSchema), async (req, res) => {
   const { name, body, vars } = req.body;
   if (!name || !body) return res.status(400).json({ error: "name_and_body_required" });
   const doc = await Template.create({ name, body, vars: vars || [] });
@@ -308,7 +309,7 @@ router.post("/templates", auth, async (req, res) => {
   res.json(doc);
 });
 
-router.put("/templates/:id", auth, async (req, res) => {
+router.put("/templates/:id", auth, validate(TemplateSchema), async (req, res) => {
   const { name, body, vars } = req.body;
   const doc = await Template.findByIdAndUpdate(req.params.id, { name, body, vars: vars || [] }, { new: true });
   if (!doc) return res.status(404).json({ error: "not_found" });
@@ -341,7 +342,7 @@ router.get("/contacts", auth, async (_req, res) =>
   res.json(await Contact.find({}).sort({ createdAt: -1 }))
 );
 
-router.post("/contacts", auth, async (req, res) => {
+router.post("/contacts", auth, validate(ContactCreateSchema), async (req, res) => {
   const { phoneE164, name, tags, subscriptionStart, subscriptionEnd, subscriptionNotes } = req.body;
   if (!phoneE164) return res.status(400).json({ error: "phoneE164_required" });
   const existing = await Contact.findOne({ phoneE164 });
@@ -358,7 +359,7 @@ router.post("/contacts", auth, async (req, res) => {
   res.json(doc);
 });
 
-router.put("/contacts/:id", auth, async (req, res) => {
+router.put("/contacts/:id", auth, validate(ContactUpdateSchema), async (req, res) => {
   const { name, tags, optIn, subscriptionStart, subscriptionEnd, subscriptionNotes } = req.body;
   const doc = await Contact.findByIdAndUpdate(req.params.id, {
     name, tags, optIn,
@@ -494,7 +495,7 @@ router.post("/recurring/:id/clone", auth, wrap(async (req, res) => {
   res.json(clone);
 }));
 
-router.post("/recurring/preview", auth, wrap(async (req, res) => {
+router.post("/recurring/preview", auth, validate(RecurringPreviewSchema), wrap(async (req, res) => {
   const { pattern, tz, count = 5 } = req.body;
   try {
     const it = cronParser.parseExpression(pattern, { tz });
@@ -520,7 +521,7 @@ router.get("/scheduled", auth, async (req, res) => {
 });
 
 // Criar agendamento
-router.post("/scheduled", auth, async (req, res) => {
+router.post("/scheduled", auth, validate(ScheduledSchema), async (req, res) => {
   const { phoneE164, contactName, message, templateId, scheduledAt, name } = req.body;
   if (!phoneE164 || !message || !scheduledAt) {
     return res.status(400).json({ error: "phoneE164, message e scheduledAt são obrigatórios" });
@@ -621,7 +622,7 @@ router.delete("/scheduled/:id", auth, async (req, res) => {
 });
 
 // POST /auto-reply/test — simula uma mensagem recebida e mostra qual regra ativaria
-router.post("/auto-reply/test", auth, async (req, res) => {
+router.post("/auto-reply/test", auth, validate(AutoReplyTestSchema), async (req, res) => {
   const { phone, text } = req.body;
   if (!phone || !text) return res.status(400).json({ error: "phone_e_text_obrigatorios" });
 
@@ -661,7 +662,7 @@ router.get("/auto-reply", auth, async (_req, res) =>
   res.json(await AutoReply.find({}).sort({ createdAt: -1 }))
 );
 
-router.post("/auto-reply", auth, async (req, res) => {
+router.post("/auto-reply", auth, validate(AutoReplySchema), async (req, res) => {
   const { keyword, reply, targetPhone, targetName, startTime, endTime, active } = req.body;
   if (!keyword || !reply) return res.status(400).json({ error: "keyword_e_reply_obrigatorios" });
   const doc = await AutoReply.create({
@@ -678,7 +679,7 @@ router.post("/auto-reply", auth, async (req, res) => {
   res.json(doc);
 });
 
-router.put("/auto-reply/:id", auth, async (req, res) => {
+router.put("/auto-reply/:id", auth, validate(AutoReplySchema), async (req, res) => {
   const { keyword, reply, targetPhone, targetName, startTime, endTime, active } = req.body;
   const doc = await AutoReply.findByIdAndUpdate(req.params.id,
     { keyword: String(keyword||"").trim(), reply, targetPhone: normPhone(targetPhone||""), targetName: targetName||"", startTime: startTime||"00:00", endTime: endTime||"23:59", active },
@@ -865,7 +866,7 @@ router.get("/pipeline/metrics", auth, async (_req, res) => {
 });
 
 // Adicionar cliente à esteira (dispara onboarding)
-router.post("/pipeline/contacts", auth, async (req, res) => {
+router.post("/pipeline/contacts", auth, validate(PipelineContactSchema), async (req, res) => {
   const { contactId, phoneE164, name } = req.body;
   if (!phoneE164) return res.status(400).json({ error: "phoneE164_required" });
 
