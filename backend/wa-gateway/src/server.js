@@ -71,7 +71,8 @@ let _zombie = false;
 let _loggingOut = false;
 const ALERT_COOLDOWN_MS = 10*60*1000;
 const HEALTH_INTERVAL_MS = 60*1000;
-const DECRYPT_FAIL_LIMIT = 30;          // starting | qr | connected | disconnected
+const DECRYPT_FAIL_LIMIT = 30;
+const MAX_RECONNECT_ATTEMPTS = 5; // [REGRA] apos N tentativas falhas -> sessao nova (QR)          // starting | qr | connected | disconnected
 let qrDataUrl = null;             // data URL do último QR
 const contacts = new Map();       // jid -> { name, phone, uncertain }
 
@@ -213,8 +214,32 @@ async function _healthCheck() {
 }
 setInterval(_healthCheck, HEALTH_INTERVAL_MS);
 
+// [REGRA do usuario] Ultima instancia: quando reconexao nao resolve (sessao corrompida/zumbi),
+// desconecta TOTALMENTE, limpa credenciais e volta o QR para nova leitura.
+async function forceFreshSession(reason) {
+  logger.warn("forceFreshSession acionado: " + reason + " -> limpando sessao e gerando novo QR");
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  reconnectAttempts = 0;
+  if (sock) {
+    try { sock.ev.removeAllListeners(); } catch {}
+    try { await withTimeout(Promise.resolve(sock.logout?.()), 1500); } catch (e) { logger.warn("logout ignorado (" + e.message + ")"); }
+    try { sock.end(new Error("force-fresh")); } catch {}
+    sock = null;
+  }
+  try { for (const f of fs.readdirSync(AUTH_DIR)) fs.rmSync(AUTH_DIR + "/" + f, { recursive: true, force: true }); }
+  catch (e) { logger.error("falha limpando auth: " + e.message); }
+  status = "disconnected"; qrDataUrl = null; _zombie = false; _decryptFails = 0; _healthFails = 0;
+  setTimeout(() => { start().catch((e) => logger.error("falha ao reiniciar pos-fresh: " + e.message)); }, 500);
+}
+
 function scheduleReconnect() {
   if (reconnectTimer || _loggingOut) return; // [FIX] nao reconecta durante logout
+  // [REGRA do usuario] esgotou as tentativas -> sessao corrompida: desconecta total e pede QR novo
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    logger.warn("reconexao esgotada (" + reconnectAttempts + ") -> forcando nova sessao/QR");
+    forceFreshSession("reconexao esgotada");
+    return;
+  }
   const delay = Math.min(30000, 1500 * 2 ** reconnectAttempts);
   reconnectAttempts++;
   logger.warn(`reagendando conexao em ${delay}ms (tentativa ${reconnectAttempts})`);
@@ -391,14 +416,17 @@ app.post("/send-media", async (req, res) => {
 app.post("/logout", async (_req, res) => {
   try {
     _loggingOut = true;
-    logger.warn("logout solicitado via API");
+    logger.warn("logout solicitado via API (botao desconectar)");
+    // responde imediatamente -> a UI nao fica pendurada
     res.json({ ok: true, message: "sessao encerrada, gerando novo QR" });
-    try { if (sock && sock.logout) { sock.logout().catch(()=>{}); } } catch (e) { logger.warn("sock.logout falhou: " + e.message); }
-    try { if (sock && sock.end) sock.end(new Error("logout")); } catch (e) {}
-    try { for (const f of fs.readdirSync(AUTH_DIR)) fs.rmSync(AUTH_DIR + "/" + f, { recursive: true, force: true }); } catch (e) { logger.error("falha limpando auth: " + e.message); }
-    sock = null; status = "disconnected"; qrDataUrl = null; _zombie = false;
-    setTimeout(() => { start().catch((e) => { logger.error("falha ao reiniciar pos-logout: " + e.message); }); }, 800);
-  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    // reusa o mesmo caminho seguro do auto-recovery
+    await forceFreshSession("logout manual");
+    _loggingOut = false;
+  } catch (e) {
+    _loggingOut = false;
+    logger.error("erro no logout: " + e.message);
+    try { res.status(500).json({ ok: false, error: e.message }); } catch {}
+  }
 });
 
 app.listen(PORT, () => logger.warn(`✅ WA Gateway :${PORT}`));
