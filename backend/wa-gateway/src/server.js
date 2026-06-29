@@ -319,14 +319,22 @@ function _isDupMsg(id){
 // mensagens recebidas -> webhook
   sock.ev.on("messages.upsert", async ({ messages = [], type }) => {
     if (type !== "notify") return;
-    _lastInboundAt = Date.now(); _lastHealthyAt = Date.now(); _decryptFails = 0; _zombie = false;
+    _lastInboundAt = Date.now(); _lastHealthyAt = Date.now(); _zombie = false; // [FIX] _decryptFails so zera em decrypt OK
     for (const msg of messages) {
       try {
-        if (!msg.message || msg.key.fromMe) continue;
+        if (msg.key.fromMe) continue;
+        // [REGRA] mensagem sem conteudo decifravel = provavel Bad MAC
+        if (!msg.message) {
+          _decryptFails++;
+          logger.warn("decrypt fail (" + _decryptFails + "/" + DECRYPT_FAIL_LIMIT + ")");
+          if (_decryptFails >= DECRYPT_FAIL_LIMIT && !_loggingOut) { forceFreshSession("decrypt fails em excesso (Bad MAC)"); }
+          continue;
+        }
         if (_isDupMsg(msg.key.id)) continue;
         const remoteJid = msg.key.remoteJid || "";
         if (remoteJid === "status@broadcast" || remoteJid.endsWith("@g.us")) continue; // ignora status e grupos
         const text = extractText(msg);
+        _decryptFails = 0; // [FIX] decrypt OK reseta contador
         if (!text) continue;
 
         const pushName = msg.pushName || "";
