@@ -220,12 +220,15 @@ async function forceFreshSession(reason) {
   logger.warn("forceFreshSession acionado: " + reason + " -> limpando sessao e gerando novo QR");
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   reconnectAttempts = 0;
+  // [FIX RAIZ] mata o socket ANTES de limpar, e NAO chama sock.logout()
+  // (logout regrava creds.json -> race condition que ressuscitava a sessao corrompida)
   if (sock) {
-    try { sock.ev.removeAllListeners(); } catch {}
-    try { await withTimeout(Promise.resolve(sock.logout?.()), 1500); } catch (e) { logger.warn("logout ignorado (" + e.message + ")"); }
+    try { sock.ev.removeAllListeners(); } catch {}  // sem creds.update = sem regravacao
     try { sock.end(new Error("force-fresh")); } catch {}
     sock = null;
   }
+  await new Promise((r) => setTimeout(r, 300)); // deixa o socket morrer de fato
+  // agora sim limpa o AUTH_DIR (ninguem mais grava nele)
   try { for (const f of fs.readdirSync(AUTH_DIR)) fs.rmSync(AUTH_DIR + "/" + f, { recursive: true, force: true }); }
   catch (e) { logger.error("falha limpando auth: " + e.message); }
   status = "disconnected"; qrDataUrl = null; _zombie = false; _decryptFails = 0; _healthFails = 0;
