@@ -71,6 +71,7 @@ let _zombie = false;
 let _loggingOut = false;
 const ALERT_COOLDOWN_MS = 10*60*1000;
 const HEALTH_INTERVAL_MS = 60*1000;
+const INACTIVITY_LIMIT_MS = 30*60*1000; // 30min sem inbound em horario de fluxo (06h-23h) => zumbi silencioso
 const DECRYPT_FAIL_LIMIT = 30;
 const MAX_RECONNECT_ATTEMPTS = 5; // [REGRA] apos N tentativas falhas -> sessao nova (QR)          // starting | qr | connected | disconnected
 let qrDataUrl = null;             // data URL do último QR
@@ -188,6 +189,18 @@ async function _healthCheck() {
   _healthRunning = true;
   try {
     if (status !== "connected" || !sock) { return; }
+    // WATCHDOG INATIVIDADE (zumbi silencioso): status=connected mas sem receber msg
+    try {
+      const inactiveMs = Date.now() - _lastInboundAt;
+      const hora = new Date().getHours(); // container TZ America/Sao_Paulo
+      const dentroDoFluxo = hora >= 6 && hora < 23;
+      if (dentroDoFluxo && _lastInboundAt > 0 && inactiveMs > INACTIVITY_LIMIT_MS) {
+        logger.warn("watchdog inatividade: " + Math.round(inactiveMs/60000) + "min sem inbound em horario de fluxo -> forcando nova sessao");
+        _sendAdminAlert("watchdog inatividade: " + Math.round(inactiveMs/60000) + "min sem mensagens, gerando novo QR");
+        forceFreshSession("inatividade prolongada (zumbi silencioso)");
+        return;
+      }
+    } catch (e) { logger.error("erro watchdog inatividade: " + e.message); }
     const idleMs = Date.now() - _lastHealthyAt;
     let ok = false;
     // [FIX] ping com timeout de 10s - antes travava para sempre no modo zumbi
