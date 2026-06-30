@@ -74,6 +74,7 @@ const HEALTH_INTERVAL_MS = 60*1000;
 const INACTIVITY_LIMIT_MS = 30*60*1000; // 30min sem inbound em horario de fluxo (06h-23h) => zumbi silencioso
 const DECRYPT_FAIL_LIMIT = 30;
 const KEEPALIVE_MS = 4*60*60*1000; // keep-alive: a cada 4h envia status p/ ADMIN_ALERT_JID mantendo sessao quente
+const KEEPALIVE_JID = "5515988008487@s.whatsapp.net"; // destino do keep-alive (Ricieri)
 const MAX_RECONNECT_ATTEMPTS = 5; // [REGRA] apos N tentativas falhas -> sessao nova (QR)          // starting | qr | connected | disconnected
 let qrDataUrl = null;             // data URL do último QR
 const contacts = new Map();       // jid -> { name, phone, uncertain }
@@ -232,9 +233,10 @@ setInterval(_healthCheck, HEALTH_INTERVAL_MS);
 async function _keepAlive() {
   try {
     if (status !== "connected" || !sock) return;
-    if (!ADMIN_ALERT_JID) return;
+    if (!KEEPALIVE_JID) return;
+    const hora = new Date().getHours(); if (hora < 6 || hora >= 23) { return; } // pausa madrugada (23h-06h)
     const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-    await sock.sendMessage(ADMIN_ALERT_JID, { text: "\u2705 AutoFlow EPICO \u2014 status OK (" + agora + ")" });
+    await sock.sendMessage(KEEPALIVE_JID, { text: "\u2705 AutoFlow EPICO \u2014 status OK (" + agora + ")" });
     logger.info("keep-alive enviado: " + agora);
   } catch (e) { logger.warn("keep-alive falhou: " + e.message); }
 }
