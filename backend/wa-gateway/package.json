@@ -1,15 +1,12 @@
 {
-  "name": "autoflow-wa-gateway",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "description": "Gateway WhatsApp (Baileys) — reconstruído como base operacional. Contratos: /status /qr /contacts /send /send-media + webhook.",
+  "name": "wa-gateway",
+  "version": "2.0.0",
+  "description": "AutoFlow EPICO WA Gateway (whatsapp-web.js): /status /qr /contacts /send /send-media + webhook.",
+  "type": "commonjs",
   "scripts": { "start": "node src/server.js" },
   "dependencies": {
-    "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "^6.7.18",
     "express": "^4.19.2",
-    "pino": "^9.5.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.23.0"
   }
 }
