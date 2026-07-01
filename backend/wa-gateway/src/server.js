@@ -182,33 +182,59 @@ async function start() {
   });
 
   // mensagens recebidas -> webhook
-  client.on("message", async (msg) => {
+  // whatsapp-web.js v1.34+: dependendo da conta (esquema LID) o evento
+  // "message" nem sempre dispara; "message_create" cobre todas as msgs.
+  const _seenInbound = new Map();
+  function _dupInbound(id) {
+    if (!id) return false;
+    const now = Date.now();
+    for (const [k, t] of _seenInbound) { if (now - t > 300000) _seenInbound.delete(k); }
+    if (_seenInbound.has(id)) return true;
+    _seenInbound.set(id, now);
+    return false;
+  }
+  async function handleInbound(msg) {
     try {
+      if (!msg || msg.fromMe) return;
+      const idStr = msg.id?._serialized || msg.id?.id || "";
+      if (_dupInbound(idStr)) return;
       _lastInboundAt = Date.now(); _lastHealthyAt = Date.now(); _zombie = false;
-      if (msg.fromMe) return;
       const from = msg.from || "";
       if (from === "status@broadcast" || from.endsWith("@g.us")) return; // ignora status e grupos
       const text = extractText(msg);
       if (!text) return;
 
       let pushName = "";
-      try { const c = await msg.getContact(); pushName = c?.pushname || c?.name || ""; } catch (e) {}
+      let contactNumber = "";
+      try {
+        const c = await msg.getContact();
+        pushName = c?.pushname || c?.name || "";
+        // c.id.user traz o NUMERO REAL (ex: 5515988008487) mesmo quando
+        // msg.from vem como @lid. c.number pode trazer o LID (incorreto).
+        const idUser = (c?.id && c.id.server === "c.us") ? c.id.user : "";
+        contactNumber = onlyDigits(idUser) || onlyDigits(c?.number) || "";
+      } catch (e) { log("getContact err:", e.message); }
 
-      const realDigits = phoneFromJid(from);
-      rememberContact(realDigits, pushName);
+      const isLidFrom = from.endsWith("@lid");
+      const realDigits = contactNumber || (isLidFrom ? "" : phoneFromJid(from));
+      const lidDigits = isLidFrom ? phoneFromJid(from) : "";
+      if (realDigits) rememberContact(realDigits, pushName);
 
       await postWebhook({
         from,
         text,
         pushName,
         fromReal: realDigits,
-        fromLid: "",
+        fromLid: lidDigits,
         replyTo: from,
       });
+      log("inbound de", realDigits || from, "->", text.slice(0, 40));
     } catch (e) {
       log("erro processando msg:", e.message);
     }
-  });
+  }
+  client.on("message", handleInbound);
+  client.on("message_create", (m) => { if (m && !m.fromMe) handleInbound(m); });
 
   await client.initialize();
 }
@@ -244,6 +270,8 @@ async function targetChatId({ to, replyTo }) {
   for (const cand of cands) {
     try {
       const wid = await client.getNumberId(cand);
+      // getNumberId resolve o endereco valido de envio (pode ser @c.us OU @lid,
+      // conforme a conta migrada). Confiamos no que a lib retorna.
       if (wid && wid._serialized) return wid._serialized;
     } catch (e) {}
   }
