@@ -1327,16 +1327,16 @@ async function importJson(e) {
       </div>
 
       {tab === "esteira" && (
-        <div className="bg-ink-2 border border-hair rounded-2xl overflow-hidden">
+        <div className="bg-ink-2 border border-hair rounded-2xl overflow-x-auto">
           <div className="grid grid-cols-12 bg-raised text-xs font-semibold text-mist border-b border-hair px-4 py-3">
-            <div className="col-span-3">Cliente</div><div className="col-span-2">WhatsApp</div><div className="col-span-2">Status</div><div className="col-span-2">Entrou em</div><div className="col-span-3">Ações</div>
+            <div className="col-span-3 sticky left-0 z-10 bg-raised pr-2">Cliente</div><div className="col-span-2">WhatsApp</div><div className="col-span-2">Status</div><div className="col-span-2">Entrou em</div><div className="col-span-3">Ações</div>
           </div>
           {contacts.length === 0 && <div className="py-10 text-center text-mut text-sm">Nenhum cliente na esteira</div>}
           {contacts.map((c) => {
             const st = PIPE_STATUS[c.status] || PIPE_STATUS.ended;
             return (
               <div key={c._id} className="grid grid-cols-12 border-b border-hair px-4 py-3 text-sm hover:bg-raised transition-colors items-center">
-                <div className="col-span-3 font-medium text-bone">{agendaResolve(agenda, c.phoneE164) || c.name || "Sem nome"}</div>
+                <div className="col-span-3 font-medium text-bone sticky left-0 z-10 bg-ink-2 pr-2">{agendaResolve(agenda, c.phoneE164) || c.name || "Sem nome"}</div>
                 <div className="col-span-2 text-mist font-mono text-xs">{c.phoneE164}</div>
                 <div className="col-span-2 text-xs"><span className={cn("px-2 py-1 rounded-full font-medium", st.color)}>{st.label}</span></div>
                 <div className="col-span-2 text-xs text-mut">{new Date(c.enteredAt).toLocaleDateString("pt-BR")}</div>
