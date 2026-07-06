@@ -545,7 +545,19 @@ function ContactsView({ toast }) {
       if (editing) { const { phoneE164, ...rest } = payload; await api(`contacts/${editing._id}`, { method: "PUT", body: { ...rest, optIn: true } }); toast("Cliente atualizado.", "indigo"); }
       else { await api("contacts", { method: "POST", body: payload }); toast("Cliente cadastrado.", "indigo"); }
       setOpen(false); await load();
-    } catch (e) { toast("Erro ao salvar: " + e.message, "red"); }
+    } catch (e) {
+      // Numero ja cadastrado: atualiza o cliente existente em vez de falhar (evita duplicidade)
+      if (!editing && e.data && e.data.error === "already_exists" && e.data.contact && e.data.contact._id) {
+        try {
+          const { phoneE164, ...rest } = payload;
+          await api(`contacts/${e.data.contact._id}`, { method: "PUT", body: { ...rest, optIn: true } });
+          toast("Já existia um cadastro com esse número — dados atualizados.", "indigo");
+          setOpen(false); await load();
+        } catch (e2) { toast("Erro ao salvar: " + e2.message, "red"); }
+      } else {
+        toast("Erro ao salvar: " + e.message, "red");
+      }
+    }
   }
   async function del(c) {
     if (!confirm(`Remover ${c.name || c.phoneE164}?`)) return;
@@ -1453,10 +1465,23 @@ function SubscriptionsView({ toast }) {
   }
   async function saveSub() {
     if (!modal.phone) { toast && toast("Informe o WhatsApp.", "red"); return; }
+    const payload = { phoneE164: modal.phone, name: modal.name || "", tags: [], subscriptionStart: modal.subscriptionStart || null, subscriptionEnd: modal.subscriptionEnd || null, subscriptionNotes: modal.subscriptionNotes || "", optIn: true };
     try {
-      await api("contacts", { method: "POST", body: { phoneE164: modal.phone, name: modal.name || "", tags: [], subscriptionStart: modal.subscriptionStart || null, subscriptionEnd: modal.subscriptionEnd || null, subscriptionNotes: modal.subscriptionNotes || "", optIn: true } });
+      await api("contacts", { method: "POST", body: payload });
       toast && toast("Assinante incluído.", "emerald"); setModal(null); reload();
-    } catch (e) { toast && toast("Erro: " + e.message, "red"); }
+    } catch (e) {
+      // Numero ja cadastrado: atualiza o cliente existente em vez de falhar (evita duplicidade)
+      if (e.data && e.data.error === "already_exists" && e.data.contact && e.data.contact._id) {
+        try {
+          const { phoneE164, ...rest } = payload;
+          await api(`contacts/${e.data.contact._id}`, { method: "PUT", body: rest });
+          toast && toast("Já existia um cadastro com esse número — dados atualizados.", "emerald");
+          setModal(null); reload();
+        } catch (e2) { toast && toast("Erro ao atualizar: " + e2.message, "red"); }
+      } else {
+        toast && toast("Erro: " + e.message, "red");
+      }
+    }
   }
 
   return (

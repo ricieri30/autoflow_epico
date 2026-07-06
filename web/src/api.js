@@ -16,7 +16,12 @@ export async function api(endpoint, { method = "GET", body } = {}) {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || `HTTP_${res.status}`);
+    let parsed = null;
+    try { parsed = text ? JSON.parse(text) : null; } catch (_) { /* corpo nao-JSON */ }
+    const err = new Error((parsed && parsed.message) || text || `HTTP_${res.status}`);
+    err.status = res.status;
+    err.data = parsed;
+    throw err;
   }
   return res.json();
 }
