@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import multer from "multer";
+import { spawn } from "child_process";
 
 import { auth, requireRole } from "./auth.js";
 import { render } from "./template.js";
@@ -1104,6 +1105,21 @@ router.get("/backup/status", auth, adminOnly, async (req, res) => {
     else if (fs.existsSync(reqRun) || fs.existsSync(reqRes)) status = "running";
     res.json({ id, status });
   } catch (e) { res.status(500).json({ error: "status_failed", message: e.message }); }
+});
+
+router.get("/backup/download", auth, adminOnly, async (req, res) => {
+  try {
+    const date = String(req.query.date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: "invalid_date" });
+    const dir = path.join(BACKUP_DIR, date);
+    if (!fs.existsSync(dir)) return res.status(404).json({ error: "not_found" });
+    try { await Audit.create({ who: req.user?.email || "?", action: "BACKUP_DOWNLOAD", entity: "backup", detail: `download solicitado: ${date}`, ok: true }); } catch (_) {}
+    res.setHeader("Content-Type", "application/gzip");
+    res.setHeader("Content-Disposition", `attachment; filename="autoflow-epico-backup-${date}.tar.gz"`);
+    const tar = spawn("tar", ["-czf", "-", "-C", BACKUP_DIR, date]);
+    tar.stdout.pipe(res);
+    tar.on("error", (e) => { if (!res.headersSent) res.status(500).json({ error: "download_failed", message: e.message }); });
+  } catch (e) { if (!res.headersSent) res.status(500).json({ error: "download_failed", message: e.message }); }
 });
 
 // AUTOFLOW_ERR_HANDLER: tratamento central de erros — responde JSON limpo
