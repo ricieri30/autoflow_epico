@@ -93,7 +93,7 @@ async function load(){
     if(!d.backups.length){rows.innerHTML='<tr><td colspan="6">Nenhum backup ainda.</td></tr>';return;}
     rows.innerHTML=d.backups.map(b=>{
       const p=b.parts; const part=(k,l)=>'<span class="'+(p[k]?'y':'n')+'">'+(p[k]?'✓':'✗')+' '+l+'</span>';
-    const act=IS_ADMIN?("<button class=\"danger mini\" onclick=\"openRestore(\'+esc(b.date)+\')\">Restaurar</button> <button class=\"mini\" onclick=\"downloadBackup(\'+esc(b.date)+\')\">Baixar</button>"):"";
+    const act=IS_ADMIN?("<button class=\"danger mini\" onclick=\"openRestore('"+esc(b.date)+"')\">Restaurar</button> <button class=\"mini\" onclick=\"downloadBackup('"+esc(b.date)+"')\">Baixar</button>"):"";
       return '<tr><td><b>'+esc(b.date)+'</b></td><td>'+esc(b.size)+'</td>'+
         '<td><span class="pill '+(b.complete?'ok':'bad')+'">'+(b.complete?'completo':'incompleto')+'</span></td>'+
         '<td class="parts">'+part('code','código')+part('mongo','banco')+part('waAuth','whatsapp')+'</td>'+
