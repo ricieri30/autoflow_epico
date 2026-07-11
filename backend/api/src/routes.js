@@ -30,7 +30,7 @@ const queue = makeQueue();
 // (webhook do gateway). Essas sao tratadas pelos middlewares proprios
 // de cada rota e nao passam por 'auth', entao req.user fica indefinido.
 // ──────────────────────────────────────────────────────────────────
-const RBAC_EXEMPT = new Set(["/auth/login", "/internal/message"]);
+const RBAC_EXEMPT = new Set(["/auth/login", "/internal/message", "/backup/download-direct"]);
 // Guarda global: autentica (JWT) e aplica RBAC antes de QUALQUER rota /api,
 // exceto as exemptas (login e webhook do gateway, que tem fluxo proprio).
 // Roda ANTES dos handlers, entao centraliza auth+papel num unico ponto.
@@ -1107,6 +1107,40 @@ router.get("/backup/status", auth, adminOnly, async (req, res) => {
   } catch (e) { res.status(500).json({ error: "status_failed", message: e.message }); }
 });
 
+const dlTokens = new Map();
+router.post("/backup/download-token", auth, adminOnly, async (req, res) => {
+  try {
+    const date = String((req.body && req.body.date) || "");
+    const dateOk = date.length===10 && date[4]==="-" && date[7]==="-";
+    if (!dateOk) return res.status(400).json({ error: "invalid_date" });
+    const dir = path.join(BACKUP_DIR, date);
+    if (!fs.existsSync(dir)) return res.status(404).json({ error: "not_found" });
+    const token = crypto.randomBytes(24).toString("hex");
+    dlTokens.set(token, { date: date, email: (req.user && req.user.email) || "?",
+      expires: Date.now() + 60000 });
+    res.json({ token: token });
+  } catch (e) { res.status(500).json({ error: "token_failed", message: e.message }); }
+});
+router.get("/backup/download-direct", async (req, res) => {
+  try {
+    const token = String(req.query.token || "");
+    const rec = dlTokens.get(token);
+    if (!rec || rec.expires < Date.now()) return res.status(401).json({ error: "invalid_token" });
+    dlTokens.delete(token);
+    const date = rec.date;
+    const dir = path.join(BACKUP_DIR, date);
+    if (!fs.existsSync(dir)) return res.status(404).json({ error: "not_found" });
+    try { await Audit.create({ who: rec.email, action: "BACKUP_DOWNLOAD",
+      entity: "backup", detail: "download direto: " + date, ok: true }); } catch (e2) {}
+    const q = String.fromCharCode(34);
+    res.setHeader("Content-Type", "application/gzip");
+    res.setHeader("Content-Disposition", "attachment; filename=" + q +
+      "autoflow-epico-backup-" + date + ".tar.gz" + q);
+    const tar = spawn("tar", ["-czf", "-", "-C", BACKUP_DIR, date]);
+    tar.stdout.pipe(res);
+    tar.on("error", (e) => { if (!res.headersSent) res.status(500).json({ error: "download_failed", message: e.message }); });
+  } catch (e) { if (!res.headersSent) res.status(500).json({ error: "download_failed", message: e.message }); }
+});
 router.get("/backup/download", auth, adminOnly, async (req, res) => {
   try {
     const date = String(req.query.date || "");
