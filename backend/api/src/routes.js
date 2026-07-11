@@ -1028,12 +1028,14 @@ router.get("/backup/list", auth, adminOnly, async (_req, res) => {
       if (!st.isDirectory()) continue;
       const bytes = dirSizeBytes(full);
       const hasManifest = fs.existsSync(path.join(full, "MANIFEST.txt"));
+    let bkCreatedAt = st.mtime;
+    if (hasManifest) { try { bkCreatedAt = fs.statSync(path.join(full, "MANIFEST.txt")).mtime; } catch (e) {} }
       const hasMongo = fs.existsSync(path.join(full, "mongo", "wa_admin.archive.gz"));
       const hasWaAuth = fs.existsSync(path.join(full, "volumes", "wa_auth.tar.gz"));
       const hasCode = fs.existsSync(path.join(full, "code"));
       items.push({
         date: name, bytes, size: humanSize(bytes),
-        createdAt: st.mtime.toISOString(),
+        createdAt: bkCreatedAt.toISOString(),
         complete: hasManifest && hasMongo && hasWaAuth && hasCode,
         parts: { code: hasCode, mongo: hasMongo, waAuth: hasWaAuth, manifest: hasManifest },
       });
